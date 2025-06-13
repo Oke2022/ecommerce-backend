@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         AWS_DEFAULT_REGION = 'us-west-1'
-        ECR_REPOSITORY = '${ECR_REPO_URL}'
+        ECR_REPOSITORY = "123456789012.dkr.ecr.us-west-1.amazonaws.com/ecommerce-backend"
         IMAGE_TAG = "${BUILD_NUMBER}"
         KUBECONFIG_CREDENTIAL_ID = 'kubeconfig'
     }
