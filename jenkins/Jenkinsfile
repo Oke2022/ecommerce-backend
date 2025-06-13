@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         AWS_DEFAULT_REGION = 'us-west-1'
-        ECR_REPOSITORY = "123456789012.dkr.ecr.us-west-1.amazonaws.com/ecommerce-backend"
+        ECR_REPOSITORY = "241533137667.dkr.ecr.us-west-1.amazonaws.com/ecommerce-backend"
         IMAGE_TAG = "${BUILD_NUMBER}"
         KUBECONFIG_CREDENTIAL_ID = 'kubeconfig'
     }
@@ -46,7 +46,7 @@ pipeline {
     	    steps {
         	withAWS(credentials: 'aws-credentials', region: 'us-west-1') {
             	    script {
-                        def ecrRegistry = '123456789012.dkr.ecr.us-west-1.amazonaws.com'
+			def ecrRegistry = '241533137667.dkr.ecr.us-west-1.amazonaws.com'
                         def repoName = 'ecommerce-backend'
                         def imageTag = "${BUILD_NUMBER}"
                         def fullImageName = "${ecrRegistry}/${repoName}"
