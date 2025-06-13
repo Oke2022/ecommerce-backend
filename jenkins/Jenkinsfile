@@ -44,14 +44,18 @@ pipeline {
             steps {
                 withAWS(credentials: 'aws-credentials', region: 'us-west-1') {
                     script {
-                        def ecrLogin = sh(
-                            script: 'aws ecr get-login-password --region us-west-1',
-                            returnStdout: true
-                        ).trim()
                         
-                        sh "echo ${ecrLogin} | docker login --username AWS --password-stdin ${ECR_REPOSITORY}"
-                        
-                        sh "docker tag ecommerce-backend:${IMAGE_TAG} ${ECR_REPOSITORY}:${IMAGE_TAG}"
+	                def awsAccountId = '123456789012'
+        	        def region = 'us-west-1'
+                	def ecrRegistry = "${awsAccountId}.dkr.ecr.${region}.amazonaws.com"
+
+                	sh "aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${ecrRegistry}"
+
+                
+                	def imageRepo = "${ecrRegistry}/${ECR_REPOSITORY}"
+
+			
+			sh "docker tag ecommerce-backend:${IMAGE_TAG} ${ECR_REPOSITORY}:${IMAGE_TAG}"
                         sh "docker tag ecommerce-backend:${IMAGE_TAG} ${ECR_REPOSITORY}:latest"
                         
                         sh "docker push ${ECR_REPOSITORY}:${IMAGE_TAG}"
