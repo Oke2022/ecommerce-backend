@@ -40,18 +40,44 @@ pipeline {
             }
         }
         
-        stage('Push to ECR') {
+        
+	stage('Push to ECR') {
+    steps {
+        withAWS(credentials: 'aws-credentials', region: 'us-west-1') {
+            script {
+                def ecrRegistry = '123456789012.dkr.ecr.us-west-1.amazonaws.com'
+                def repoName = 'ecommerce-backend'  // replace if different
+                def imageTag = "${BUILD_NUMBER}"
+                def fullImageName = "${ecrRegistry}/${repoName}"
+
+                // Login to ECR
+                sh "aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin ${ecrRegistry}"
+
+                // Tag and push
+                sh "docker tag ecommerce-backend:${imageTag} ${fullImageName}:${imageTag}"
+                sh "docker tag ecommerce-backend:${imageTag} ${fullImageName}:latest"
+
+                sh "docker push ${fullImageName}:${imageTag}"
+                sh "docker push ${fullImageName}:latest"
+            }
+        }
+    }
+}
+
+
+	stage('Push to ECR') {
             steps {
                 withAWS(credentials: 'aws-credentials', region: 'us-west-1') {
                     script {
-                        
-	                def awsAccountId = '123456789012'
-        	        def region = 'us-west-1'
-                	def ecrRegistry = "${awsAccountId}.dkr.ecr.${region}.amazonaws.com"
+			def ecrRegistry = '123456789012.dkr.ecr.us-west-1.amazonaws.com'
+               		def repoName = 'ecommerce-backend' 
+                	def imageTag = "${BUILD_NUMBER}"
+        	        def fullImageName = "${ecrRegistry}/${repoName}"
 
-                	sh "aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${ecrRegistry}"
-
-                
+        
+	                sh "aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin ${ecrRegistry}"
+	
+                        def imageRepo = "${ecrRegistry}/${ECR_REPOSITORY}"
                 	def imageRepo = "${ecrRegistry}/${ECR_REPOSITORY}"
 
 			
