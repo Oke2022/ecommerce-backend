@@ -1,0 +1,121 @@
+pipeline {
+    agent any
+    
+    environment {
+        AWS_DEFAULT_REGION = 'us-west-1'
+        ECR_REPOSITORY = '${ECR_REPO_URL}'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        KUBECONFIG_CREDENTIAL_ID = 'kubeconfig'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Build Maven') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+        
+        stage('Run Tests') {
+            steps {
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    def app = docker.build("ecommerce-backend:${IMAGE_TAG}")
+                }
+            }
+        }
+        
+        stage('Push to ECR') {
+            steps {
+                withAWS(credentials: 'aws-credentials', region: 'us-west-1') {
+                    script {
+                        def ecrLogin = sh(
+                            script: 'aws ecr get-login-password --region us-west-1',
+                            returnStdout: true
+                        ).trim()
+                        
+                        sh "echo ${ecrLogin} | docker login --username AWS --password-stdin ${ECR_REPOSITORY}"
+                        
+                        sh "docker tag ecommerce-backend:${IMAGE_TAG} ${ECR_REPOSITORY}:${IMAGE_TAG}"
+                        sh "docker tag ecommerce-backend:${IMAGE_TAG} ${ECR_REPOSITORY}:latest"
+                        
+                        sh "docker push ${ECR_REPOSITORY}:${IMAGE_TAG}"
+                        sh "docker push ${ECR_REPOSITORY}:latest"
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy to EKS') {
+            steps {
+                withAWS(credentials: 'aws-credentials', region: 'us-west-1') {
+                    script {
+                        sh "aws eks update-kubeconfig --region us-west-1 --name ecommerce-eks-cluster"
+                        
+                        // Update deployment with new image
+                        sh """
+                            sed -i 's|image: .*|image: ${ECR_REPOSITORY}:${IMAGE_TAG}|' k8s/deployment.yaml
+                            kubectl apply -f k8s/deployment.yaml
+                            kubectl apply -f k8s/service.yaml
+                            kubectl apply -f k8s/ingress.yaml
+                        """
+                        
+                        // Wait for rollout
+                        sh "kubectl rollout status deployment/ecommerce-backend --timeout=300s"
+                    }
+                }
+            }
+        }
+        
+        stage('Verify Deployment') {
+            steps {
+                withAWS(credentials: 'aws-credentials', region: 'us-west-1') {
+                    script {
+                        sh "kubectl get pods -l app=ecommerce-backend"
+                        sh "kubectl get svc ecommerce-backend-service"
+                        
+                        // Get ALB URL and test
+                        def albUrl = sh(
+                            script: "kubectl get ingress ecommerce-backend-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
+                            returnStdout: true
+                        ).trim()
+                        
+                        if (albUrl) {
+                            echo "Application deployed successfully at: http://${albUrl}"
+                            // Wait a bit for ALB to be ready and test
+                            sleep(30)
+                            sh "curl -f http://${albUrl}/actuator/health || true"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo 'Pipeline succeeded!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
+}

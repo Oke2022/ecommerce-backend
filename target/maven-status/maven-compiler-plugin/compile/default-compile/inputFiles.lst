@@ -1,0 +1,5 @@
+/home/ubuntu/ecommerce-backend/src/main/java/com/ecommerce/ECommerceApplication.java
+/home/ubuntu/ecommerce-backend/src/main/java/com/ecommerce/controller/ProductController.java
+/home/ubuntu/ecommerce-backend/src/main/java/com/ecommerce/service/ProductService.java
+/home/ubuntu/ecommerce-backend/src/main/java/com/ecommerce/repository/ProductRepository.java
+/home/ubuntu/ecommerce-backend/src/main/java/com/ecommerce/model/Product.java
