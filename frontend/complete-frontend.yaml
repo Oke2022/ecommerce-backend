@@ -1,0 +1,340 @@
+# Complete Frontend Deployment with ConfigMap, Deployment, and Service
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>E-Commerce Store</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            header {
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                padding: 1rem 0;
+                margin-bottom: 2rem;
+                border-radius: 15px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            }
+            h1 {
+                text-align: center;
+                color: #2c3e50;
+                font-size: 2.5rem;
+                font-weight: 700;
+                background: linear-gradient(45deg, #667eea, #764ba2);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            .controls {
+                background: rgba(255, 255, 255, 0.9);
+                padding: 20px;
+                border-radius: 15px;
+                margin-bottom: 30px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            }
+            .form-group {
+                display: flex;
+                gap: 15px;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: center;
+            }
+            input, button {
+                padding: 12px 20px;
+                border: 2px solid #ddd;
+                border-radius: 8px;
+                font-size: 16px;
+                transition: all 0.3s ease;
+            }
+            input:focus {
+                outline: none;
+                border-color: #667eea;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }
+            button {
+                background: linear-gradient(45deg, #667eea, #764ba2);
+                color: white;
+                border: none;
+                cursor: pointer;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            }
+            .products-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 25px;
+                margin-top: 30px;
+            }
+            .product-card {
+                background: rgba(255, 255, 255, 0.95);
+                padding: 25px;
+                border-radius: 20px;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+                transition: all 0.3s ease;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            }
+            .product-card:hover {
+                transform: translateY(-10px);
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            }
+            .product-name {
+                font-size: 1.4rem;
+                font-weight: 700;
+                color: #2c3e50;
+                margin-bottom: 10px;
+            }
+            .product-price {
+                font-size: 1.8rem;
+                font-weight: 800;
+                background: linear-gradient(45deg, #667eea, #764ba2);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                margin-bottom: 15px;
+            }
+            .product-actions {
+                display: flex;
+                gap: 10px;
+            }
+            .btn-small {
+                padding: 8px 15px;
+                font-size: 14px;
+            }
+            .btn-delete {
+                background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            }
+            .btn-update {
+                background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            }
+            .loading {
+                text-align: center;
+                padding: 40px;
+                font-size: 1.2rem;
+                color: #666;
+            }
+            .error {
+                background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+                color: white;
+                padding: 15px;
+                border-radius: 10px;
+                margin: 20px 0;
+                text-align: center;
+            }
+            .success {
+                background: linear-gradient(45deg, #4ecdc4, #44a08d);
+                color: white;
+                padding: 15px;
+                border-radius: 10px;
+                margin: 20px 0;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1>��️ E-Commerce Store</h1>
+            </header>
+            <div class="controls">
+                <div class="form-group">
+                    <input type="text" id="productName" placeholder="Product Name" />
+                    <input type="number" id="productPrice" placeholder="Price ($)" step="0.01" />
+                    <button onclick="addProduct()">Add Product</button>
+                    <button onclick="loadProducts()">Refresh Products</button>
+                </div>
+            </div>
+            <div id="message"></div>
+            <div id="products" class="products-grid">
+                <div class="loading">Loading products...</div>
+            </div>
+        </div>
+        <script>
+            const API_BASE_URL = 'http://ecommerce-backend-service/api';
+            
+            function showMessage(message, type = 'success') {
+                const messageDiv = document.getElementById('message');
+                messageDiv.innerHTML = `<div class="${type}">${message}</div>`;
+                setTimeout(() => messageDiv.innerHTML = '', 3000);
+            }
+            
+            async function loadProducts() {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/products`);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const products = await response.json();
+                    displayProducts(products);
+                } catch (error) {
+                    console.error('Error loading products:', error);
+                    document.getElementById('products').innerHTML = 
+                        `<div class="error">Error loading products: ${error.message}</div>`;
+                }
+            }
+            
+            function displayProducts(products) {
+                const productsDiv = document.getElementById('products');
+                if (products.length === 0) {
+                    productsDiv.innerHTML = '<div class="loading">No products found. Add some products!</div>';
+                    return;
+                }
+                productsDiv.innerHTML = products.map(product => `
+                    <div class="product-card">
+                        <div class="product-name">${product.name}</div>
+                        <div class="product-price">$${parseFloat(product.price).toFixed(2)}</div>
+                        <div class="product-actions">
+                            <button class="btn-small btn-update" onclick="updateProduct(${product.id})">Update</button>
+                            <button class="btn-small btn-delete" onclick="deleteProduct(${product.id})">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            async function addProduct() {
+                const name = document.getElementById('productName').value.trim();
+                const price = document.getElementById('productPrice').value;
+                if (!name || !price) {
+                    showMessage('Please enter both product name and price', 'error');
+                    return;
+                }
+                try {
+                    const response = await fetch(`${API_BASE_URL}/products`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, price: parseFloat(price) }),
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    showMessage('Product added successfully!');
+                    document.getElementById('productName').value = '';
+                    document.getElementById('productPrice').value = '';
+                    loadProducts();
+                } catch (error) {
+                    showMessage(`Error adding product: ${error.message}`, 'error');
+                }
+            }
+            
+            async function deleteProduct(id) {
+                if (!confirm('Are you sure?')) return;
+                try {
+                    const response = await fetch(`${API_BASE_URL}/products/${id}`, { method: 'DELETE' });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    showMessage('Product deleted!');
+                    loadProducts();
+                } catch (error) {
+                    showMessage(`Error: ${error.message}`, 'error');
+                }
+            }
+            
+            async function updateProduct(id) {
+                const newPrice = prompt('Enter new price:');
+                if (!newPrice) return;
+                try {
+                    const getResponse = await fetch(`${API_BASE_URL}/products/${id}`);
+                    const product = await getResponse.json();
+                    const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: product.name, price: parseFloat(newPrice) }),
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    showMessage('Product updated!');
+                    loadProducts();
+                } catch (error) {
+                    showMessage(`Error: ${error.message}`, 'error');
+                }
+            }
+            
+            document.addEventListener('DOMContentLoaded', loadProducts);
+        </script>
+    </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecommerce-frontend
+  labels:
+    app: ecommerce-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ecommerce-frontend
+  template:
+    metadata:
+      labels:
+        app: ecommerce-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: frontend-volume
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: frontend-volume
+        configMap:
+          name: frontend-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecommerce-frontend-service
+  labels:
+    app: ecommerce-frontend
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "300"
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb-ip"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+spec:
+  selector:
+    app: ecommerce-frontend
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  type: LoadBalancer
